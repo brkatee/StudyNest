@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ro"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>StudyNest</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<style>
+:root{--bg:#E1D4C2;--card:#F1E9DC;--ink:#291C0E;--acc:#6E473B;--acc2:#A78D78;--mut:#BEB5A9;--ok:#3f6b45;--bad:#9a3b32;--mid:#a0701f;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#291C0E;--card:#3a2a1c;--ink:#E1D4C2;--acc:#A78D78;--acc2:#6E473B;--mut:#5b4a3c;--ok:#8fc596;--bad:#e08a80;--mid:#e0b567}}
+:root[data-theme=dark]{--bg:#291C0E;--card:#3a2a1c;--ink:#E1D4C2;--acc:#A78D78;--acc2:#6E473B;--mut:#5b4a3c;--ok:#8fc596;--bad:#e08a80;--mid:#e0b567}
+*{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+header{padding:16px 16px 4px;display:flex;align-items:baseline;gap:8px}header h1{margin:0;font-size:22px;color:var(--acc)}header small{opacity:.7}
+#main{padding:8px 16px;max-width:760px;margin:auto}
+.card{background:var(--card);border:1px solid var(--mut);border-radius:14px;padding:14px;margin:10px 0}
+h2{font-size:18px;margin:14px 0 6px}
+button,.btn{background:var(--acc);color:var(--bg);border:0;border-radius:10px;padding:10px 14px;font:inherit;cursor:pointer;display:inline-block}
+button.ghost{background:transparent;color:var(--acc);border:1px solid var(--acc2)}
+button.opt{display:block;width:100%;text-align:left;background:var(--card);color:var(--ink);border:1px solid var(--acc2);margin:8px 0}
+button.opt.ok{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 22%,var(--card))}button.opt.bad{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 22%,var(--card))}
+.drop{display:block;border:2px dashed var(--acc2);border-radius:16px;padding:28px 16px;text-align:center;cursor:pointer;background:var(--card)}
+textarea,input[type=text]{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--acc2);border-radius:10px;padding:8px;resize:vertical}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--mut);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1;background:none;color:var(--ink);border-radius:0;padding:10px 2px;font-size:12px;opacity:.65}nav button.on{opacity:1;color:var(--acc);font-weight:700}
+nav span{display:block;font-size:18px}
+.chip{display:inline-block;background:var(--mut);color:var(--ink);border-radius:20px;padding:3px 11px;margin:3px 3px 3px 0;font-size:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.sp{justify-content:space-between}
+.flip{min-height:190px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:18px;cursor:pointer}
+.bar{height:8px;background:var(--mut);border-radius:8px;overflow:hidden}.bar i{display:block;height:100%;background:var(--acc)}
+.fb{font-weight:700;margin:8px 0}.ok{color:var(--ok)}.bad{color:var(--bad)}.mid{color:var(--mid)}
+details{margin:6px 0}summary{cursor:pointer;font-weight:600}
+.tree{border-left:2px solid var(--acc2);margin-left:6px;padding-left:12px}
+.muted{opacity:.7;font-size:14px}
+</style></head><body>
+<header><h1>StudyNest</h1><small>studiu activ</small></header>
+<div id="main"></div>
+<nav>
+<button data-t="docs" onclick="go('docs')"><span>📁</span>Documente</button>
+<button data-t="text" onclick="go('text')"><span>📄</span>Text</button>
+<button data-t="qa" onclick="go('qa')"><span>✏️</span>Î&amp;R</button>
+<button data-t="quiz" onclick="go('quiz')"><span>🎯</span>Quiz</button>
+<button data-t="cards" onclick="go('cards')"><span>🃏</span>Carduri</button>
+<button data-t="map" onclick="go('map')"><span>🧠</span>Hartă</button>
+</nav>
+<script>
+/* ===== Stocare (IndexedDB) ===== */
+const $=s=>document.querySelector(s),uid=()=>Math.random().toString(36).slice(2,9);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let db=null,docs=[],cur=null,tab='docs',quiz=null,card={i:0,f:false},status='',persist=true;
+const openDB=()=>new Promise((ok,no)=>{const r=indexedDB.open('studynest',1);r.onupgradeneeded=()=>r.result.createObjectStore('docs',{keyPath:'id'});r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+const tx=(m,f)=>new Promise((ok,no)=>{const t=db.transaction('docs',m),q=f(t.objectStore('docs'));t.oncomplete=()=>ok(q&&q.result);t.onerror=()=>no(t.error)});
+const save=async d=>{if(db)try{await tx('readwrite',s=>s.put(d))}catch(e){persist=false}};
+const del=async id=>{if(db)try{await tx('readwrite',s=>s.delete(id))}catch(e){}};
+const D=()=>docs.find(x=>x.id===cur);
+
+/* ===== Extragere text ===== */
+async function readPdf(buf){
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const p=await pdfjsLib.getDocument({data:buf.slice(0)}).promise;let t='';
+  for(let i=1;i<=p.numPages;i++){const c=await(await p.getPage(i)).getTextContent();t+=c.items.map(x=>x.str).join(' ')+'\n\n'}
+  return t}
+const readDocx=async buf=>(await mammoth.extractRawText({arrayBuffer:buf})).value;
+
+/* ===== Analiză (euristică locală, fără server) ===== */
+const STOP=new Set(('și sau dar într într-un într-o în la de cu pe din un o ale al a lui lor care ce cum este sunt fi fost se să nu mai pentru ca prin asupra între după către fără poate fiind sale său sa cel cea cei cele această acest aceste acești aceasta acestea the and of to in is are an that for with as on by it this be or from at which was were their its has have not can'.split(' ')));
+const sents=t=>t.replace(/\s+/g,' ').split(/(?<=[.!?])\s+(?=[A-ZĂÂÎȘȚ0-9])/).map(s=>s.trim()).filter(s=>s.length>40&&s.length<320);
+const words=s=>(s.toLowerCase().match(/[a-zăâîșşțţ-]{4,}/g)||[]).filter(w=>!STOP.has(w));
+function analyze(text){
+  const S=sents(text),f={};S.forEach(s=>words(s).forEach(w=>f[w]=(f[w]||0)+1));
+  const concepts=Object.entries(f).filter(e=>e[1]>1).sort((a,b)=>b[1]-a[1]).slice(0,12).map(e=>e[0]);
+  const sc=S.map((s,i)=>{const w=words(s);return{s,i,v:w.reduce((a,x)=>a+f[x],0)/Math.sqrt(w.length||1)}}).sort((a,b)=>b.v-a.v);
+  const main=sc.slice(0,6).sort((a,b)=>a.i-b.i).map(x=>x.s),qa=[];
+  const def=/^(.{3,60}?)\s+(este|sunt|reprezintă|se numește|constă în|înseamnă|is|are|means|refers to)\s+(.{15,})$/i;
+  S.forEach(s=>{const m=s.match(def);if(m&&qa.length<15)qa.push({id:uid(),type:'def',q:`Ce ${/^(sunt|are)$/i.test(m[2])?'sunt':'este'} ${m[1].replace(/^(Un|O|Acest|Această|The|A|An)\s+/i,'')}?`,a:s})});
+  sc.slice(0,40).forEach(({s})=>{if(qa.length>=25||qa.some(x=>x.a===s))return;
+    const w=words(s).sort((a,b)=>f[b]-f[a])[0];if(!w)return;
+    qa.push({id:uid(),type:'cloze',q:'Completează: '+s.replace(new RegExp(w,'i'),'_____'),a:w})});
+  return{concepts,main,qa}}
+
+/* ===== Încărcare ===== */
+async function addFiles(files){
+  for(const file of files){
+    const ext=file.name.split('.').pop().toLowerCase();
+    if(!['pdf','docx'].includes(ext)){status=`„${file.name}” nu e PDF sau DOCX.`;render();continue}
+    status=`Se procesează ${file.name}…`;render();
+    try{
+      const buf=await file.arrayBuffer(),text=(ext==='pdf'?await readPdf(buf):await readDocx(buf)).trim();
+      if(text.length<50){status=`Nu am găsit text în ${file.name} (poate e scanat).`;render();continue}
+      const d={id:uid(),name:file.name,type:ext,size:file.size,added:Date.now(),text,notes:'',known:{},scores:[],file,...analyze(text)};
+      docs.unshift(d);cur=d.id;await save(d);quiz=null;
+      status=`Gata: ${d.qa.length} întrebări și ${d.concepts.length} concepte din ${file.name}.`;
+    }catch(e){status='Eroare la citire: '+e.message}
+  }
+  render()}
+
+/* ===== Interfață ===== */
+function go(t){tab=t;render();scrollTo(0,0)}
+function open_(id){cur=id;quiz=null;card={i:0,f:false};go('text')}
+async function rm(id){if(!confirm('Ștergi documentul?'))return;docs=docs.filter(x=>x.id!==id);await del(id);if(cur===id)cur=null;render()}
+function render(){
+  const d=D();let h='';
+  if(tab==='docs')h=vDocs();
+  else if(!d)h='<div class=card>Încarcă sau alege mai întâi un document.</div>';
+  else h=({text:vText,qa:vQA,quiz:vQuiz,cards:vCards,map:vMap})[tab](d);
+  $('#main').innerHTML=h;
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab))}
+function vDocs(){
+  return `<label class=drop ondragover="event.preventDefault()" ondrop="event.preventDefault();addFiles(event.dataTransfer.files)">
+  <div style="font-size:34px">⬆️</div><b>Trage aici PDF / DOCX</b><div class=muted>sau apasă pentru a alege fișiere</div>
+  <input type=file accept=".pdf,.docx" multiple hidden onchange="addFiles(this.files)"></label>
+  ${status?`<div class=card>${esc(status)}</div>`:''}
+  ${persist?'':'<div class="card bad">Stocarea locală nu e disponibilă; datele se pierd la reîncărcare.</div>'}
+  <h2>Biblioteca ta (${docs.length})</h2>
+  ${docs.map(d=>`<div class=card><b>${esc(d.name)}</b><div class=muted>${d.type.toUpperCase()} · ${(d.size/1024).toFixed(0)} KB · ${d.text.split(/\s+/).length} cuvinte · ${d.qa.length} întrebări · ${d.scores.length} teste</div>
+  <div class=row style="margin-top:8px"><button onclick="open_('${d.id}')">Deschide</button><button class=ghost onclick="rm('${d.id}')">Șterge</button></div></div>`).join('')||'<div class=muted>Nimic încă. Documentele rămân salvate pe dispozitiv.</div>'}`}
+function vText(d){
+  return `<h2>${esc(d.name)}</h2><div class=muted>Editează textul extras, apoi regenerează conceptele și întrebările.</div>
+  <textarea rows=16 onchange="editText(this.value)">${esc(d.text)}</textarea>
+  <div class=row style="margin-top:8px"><button onclick="regen()">Regenerează local</button><button onclick="aiGen()">✨ Generează cu AI</button></div>${aiMsg?`<p class=muted>${esc(aiMsg)}</p>`:''}`}
+function editText(v){const d=D();d.text=v;save(d)}
+function regen(){const d=D();if(!confirm('Înlocuiești întrebările și conceptele actuale?'))return;Object.assign(d,analyze(d.text));quiz=null;save(d);go('qa')}
+let aiMsg='';
+async function aiGen(){
+  const d=D();aiMsg='Se generează cu Claude…';render();
+  try{
+    const sample=(typeof claude!=='undefined')?await claude.use('sample'):null;
+    if(!sample){aiMsg='Generarea AI nu e disponibilă aici; rămâne varianta locală.';render();return}
+    const r=await sample.json('Ești un asistent de studiu. Din textul de mai jos, în limba textului, returnează DOAR JSON de forma {"concepts":[6-12 concepte cheie scurte],"main":[4-6 idei principale, propoziții scurte],"qa":[{"q":"întrebare","a":"răspuns corect și concis","wrong":["3 variante greșite plauzibile"]}]} cu 12-20 întrebări bazate strict pe text. Pentru întrebările deschise pune "wrong":[].\n\nTEXT:\n'+d.text.slice(0,14000));
+    const qa=(r.qa||[]).filter(x=>x&&x.q&&x.a).map(x=>{const w=Array.isArray(x.wrong)?x.wrong.map(String).filter(Boolean):[];return{id:uid(),type:w.length>=2?'mc':'def',q:String(x.q),a:String(x.a),wrong:w}});
+    if(!qa.length)throw new Error('răspuns gol');
+    d.qa=qa;d.concepts=(r.concepts||[]).map(String).slice(0,12);d.main=(r.main||[]).map(String).slice(0,6);
+    quiz=null;d.known={};await save(d);aiMsg=`Gata: ${qa.length} întrebări generate cu AI.`;go('qa');
+  }catch(e){aiMsg=e&&e.code==='not_granted'?'Permisiunea a fost refuzată.':e&&e.code==='rate_limited'?'Prea multe cereri; încearcă mai târziu.':'Eroare: '+((e&&e.message)||'necunoscută');render()}}
+function vQA(d){
+  return `<div class="row sp"><h2>Întrebări și răspunsuri (${d.qa.length})</h2><button onclick="addQA()">+ Adaugă</button></div>
+  ${d.qa.map(x=>`<div class=card><span class=muted>${{cloze:'completare',mc:'grilă (AI)'}[x.type]||'răspuns scurt'}</span>
+  <textarea rows=2 onchange="updQA('${x.id}','q',this.value)">${esc(x.q)}</textarea>
+  <textarea rows=${x.type==='cloze'?1:3} style="margin-top:6px" onchange="updQA('${x.id}','a',this.value)">${esc(x.a)}</textarea>
+  <button class=ghost style="margin-top:6px" onclick="delQA('${x.id}')">Șterge</button></div>`).join('')}`}
+function updQA(id,k,v){const d=D();d.qa.find(x=>x.id===id)[k]=v;save(d)}
+function delQA(id){const d=D();d.qa=d.qa.filter(x=>x.id!==id);save(d);render()}
+function addQA(){const d=D();d.qa.unshift({id:uid(),type:'def',q:'Întrebare nouă?',a:'Răspuns'});save(d);render()}
+
+/* Quiz */
+const shuf=a=>a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(x=>x[1]);
+function startQuiz(){
+  const d=D(),pool=d.qa.filter(x=>x.q.trim()&&x.a.trim());
+  const dist=[...new Set([...d.concepts,...pool.filter(x=>x.type==='cloze').map(x=>x.a)])];
+  const items=shuf(pool).slice(0,10).map(x=>{
+    if(x.wrong&&x.wrong.length>=2)return{...x,mc:true,opts:shuf([x.a,...x.wrong.slice(0,3)])};
+    const mc=x.type==='cloze'&&dist.filter(w=>w.toLowerCase()!==x.a.toLowerCase()).length>=2;
+    return{...x,mc,opts:mc?shuf([x.a,...shuf(dist.filter(w=>w.toLowerCase()!==x.a.toLowerCase())).slice(0,3)]):null}});
+  quiz={items,i:0,score:0,res:null,log:[],done:false};render()}
+function grade(u,a){
+  const A=words(a),U=words(u);if(!A.length)return u.trim().toLowerCase()===a.trim().toLowerCase()?1:0;
+  const h=A.filter(w=>U.some(x=>x.slice(0,5)===w.slice(0,5))).length;return h/A.length}
+function answer(val){
+  const it=quiz.items[quiz.i];if(quiz.res)return;let r;
+  if(it.mc)r=val.toLowerCase()===it.a.toLowerCase()?'ok':'bad';
+  else{const g=grade(val,it.a);r=g>=.4?'ok':g>=.2?'mid':'bad'}
+  quiz.res={r,val};if(r==='ok')quiz.score++;else if(r==='mid')quiz.score+=.5;
+  quiz.log.push({q:it.q,a:it.a,val,r});render()}
+function nextQ(){
+  quiz.i++;quiz.res=null;
+  if(quiz.i>=quiz.items.length){quiz.done=true;const d=D();d.scores.push({t:Date.now(),s:quiz.score,n:quiz.items.length});save(d)}
+  render()}
+function vQuiz(d){
+  if(!quiz)return `<h2>Quiz</h2><div class=card>${d.qa.length} întrebări disponibile. Testul are până la 10 întrebări: grilă pentru completări, răspuns scurt pentru definiții.<div style="margin-top:10px"><button onclick="startQuiz()" ${d.qa.length?'':'disabled'}>Începe testul</button></div></div>
+  ${d.scores.length?`<h2>Istoric</h2>${d.scores.slice(-6).reverse().map(s=>`<div class=card>${new Date(s.t).toLocaleString('ro-RO')} — <b>${s.s}/${s.n}</b></div>`).join('')}`:''}`;
+  if(quiz.done){
+    const n=quiz.items.length,p=Math.round(quiz.score/n*100),w=quiz.log.filter(x=>x.r!=='ok');
+    return `<h2>Rezultat</h2><div class=card><div style="font-size:34px;font-weight:700;color:var(--acc)">${quiz.score}/${n} · ${p}%</div>
+    <div class=bar><i style="width:${p}%"></i></div><p>Corecte: ${quiz.log.filter(x=>x.r==='ok').length} · Parțiale: ${quiz.log.filter(x=>x.r==='mid').length} · Greșite: ${quiz.log.filter(x=>x.r==='bad').length}</p>
+    <button onclick="startQuiz()">Reia quiz-ul</button></div>
+    ${w.length?'<h2>De revăzut</h2>'+w.map(x=>`<div class=card><b>${esc(x.q)}</b><div class=ok>${esc(x.a)}</div><div class=muted>Ai răspuns: ${esc(x.val)||'—'}</div></div>`).join(''):''}`}
+  const it=quiz.items[quiz.i],r=quiz.res;
+  let body;
+  if(it.mc)body=it.opts.map((o,k)=>`<button class="opt ${r?(o.toLowerCase()===it.a.toLowerCase()?'ok':(o===r.val?'bad':'')):''}" onclick="answer(this.dataset.v)" data-v="${esc(o)}">${esc(o)}</button>`).join('');
+  else body=`<textarea id=ua rows=3 placeholder="Scrie răspunsul…" ${r?'disabled':''}>${r?esc(r.val):''}</textarea>${r?'':'<div style="margin-top:8px"><button onclick="answer($(\'#ua\').value)">Verifică</button></div>'}`;
+  return `<div class=muted>Întrebarea ${quiz.i+1} / ${quiz.items.length}</div><div class=bar><i style="width:${quiz.i/quiz.items.length*100}%"></i></div>
+  <div class=card><b>${esc(it.q)}</b>${body}
+  ${r?`<div class="fb ${r.r}">${{ok:'✔ Corect',mid:'≈ Parțial corect',bad:'✘ Greșit'}[r.r]}</div>${r.r!=='ok'?`<div class=muted>Răspuns corect:</div><div>${esc(it.a)}</div>`:''}<div style="margin-top:10px"><button onclick="nextQ()">${quiz.i+1<quiz.items.length?'Următoarea':'Vezi scorul'}</button></div>`:''}</div>`}
+
+/* Flashcards */
+function vCards(d){
+  const c=d.qa;if(!c.length)return '<div class=card>Nu există carduri.</div>';
+  const i=Math.min(card.i,c.length-1),x=c[i],k=Object.values(d.known).filter(Boolean).length;
+  return `<div class="row sp"><h2>Carduri</h2><span class=muted>${i+1}/${c.length} · știute: ${k}</span></div>
+  <div class="card flip" onclick="card.f=!card.f;render()">${card.f?esc(x.a):esc(x.q)}</div>
+  <div class=muted style="text-align:center">Atinge cardul pentru a-l întoarce</div>
+  <div class=row style="justify-content:center;margin-top:10px">
+  <button class=ghost onclick="mv(-1)">←</button><button onclick="mark(false)">Mai repet</button><button onclick="mark(true)">Știu</button><button class=ghost onclick="mv(1)">→</button></div>
+  ${d.known[x.id]===true?'<p class=ok style="text-align:center">marcat ca știut</p>':''}`}
+function mv(n){const l=D().qa.length;card.i=(card.i+n+l)%l;card.f=false;render()}
+function mark(v){const d=D();d.known[d.qa[card.i].id]=v;save(d);mv(1)}
+
+/* Hartă / note */
+function vMap(d){
+  const tree=d.concepts.slice(0,8).map(c=>{
+    const ss=sents(d.text).filter(s=>s.toLowerCase().includes(c)).slice(0,2);
+    return `<details><summary>${esc(c)}</summary><div class=tree>${ss.map(s=>`<p class=muted>${esc(s)}</p>`).join('')||'<p class=muted>—</p>'}</div></details>`}).join('');
+  return `<h2>Idei principale</h2><div class=card>${d.main.map(s=>`<p>• ${esc(s)}</p>`).join('')||'—'}</div>
+  <h2>Concepte cheie</h2><div>${d.concepts.map(c=>`<span class=chip>${esc(c)}</span>`).join('')}</div>
+  <h2>Hartă mentală</h2><div class=card><b style="color:var(--acc)">◉ ${esc(d.name.replace(/\.\w+$/,''))}</b><div class=tree>${tree}</div></div>
+  <h2>Notele mele</h2><textarea rows=8 placeholder="Sinteza ta…" onchange="D().notes=this.value;save(D())">${esc(d.notes)}</textarea>`}
+
+/* Pornire */
+(async()=>{
+  try{db=await openDB();docs=(await tx('readonly',s=>s.getAll())||[]).sort((a,b)=>b.added-a.added);cur=docs[0]?.id||null}
+  catch(e){persist=false}
+  render()})();
+</script></body></html>
