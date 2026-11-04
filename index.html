@@ -5,9 +5,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <style>
-:root{--bg:#E1D4C2;--card:#F1E9DC;--ink:#291C0E;--acc:#6E473B;--acc2:#A78D78;--mut:#BEB5A9;--ok:#3f6b45;--bad:#9a3b32;--mid:#a0701f;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}
-@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#291C0E;--card:#3a2a1c;--ink:#E1D4C2;--acc:#A78D78;--acc2:#6E473B;--mut:#5b4a3c;--ok:#8fc596;--bad:#e08a80;--mid:#e0b567}}
-:root[data-theme=dark]{--bg:#291C0E;--card:#3a2a1c;--ink:#E1D4C2;--acc:#A78D78;--acc2:#6E473B;--mut:#5b4a3c;--ok:#8fc596;--bad:#e08a80;--mid:#e0b567}
+:root{--bg:#f4f7f2;--card:#fff;--ink:#24332f;--acc:#27665a;--acc2:#83a99b;--mut:#dce7e1;--ok:#347548;--bad:#a43f3f;--mid:#946413;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);color-scheme:light}
 *{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
 header{padding:16px 16px 4px;display:flex;align-items:baseline;gap:8px}header h1{margin:0;font-size:22px;color:var(--acc)}header small{opacity:.7}
 #main{padding:8px 16px;max-width:760px;margin:auto}
@@ -16,11 +14,11 @@ h2{font-size:18px;margin:14px 0 6px}
 button,.btn{background:var(--acc);color:var(--bg);border:0;border-radius:10px;padding:10px 14px;font:inherit;cursor:pointer;display:inline-block}
 button.ghost{background:transparent;color:var(--acc);border:1px solid var(--acc2)}
 button.opt{display:block;width:100%;text-align:left;background:var(--card);color:var(--ink);border:1px solid var(--acc2);margin:8px 0}
-button.opt.ok{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 22%,var(--card))}button.opt.bad{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 22%,var(--card))}
+button.opt.ok{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 22%,var(--card))}button.opt.bad{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 22%,var(--card))}button.opt.selected{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 18%,var(--card))}
 .drop{display:block;border:2px dashed var(--acc2);border-radius:16px;padding:28px 16px;text-align:center;cursor:pointer;background:var(--card)}
 textarea,input[type=text]{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--acc2);border-radius:10px;padding:8px;resize:vertical}
-nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--mut);padding-bottom:env(safe-area-inset-bottom,0px)}
-nav button{flex:1;background:none;color:var(--ink);border-radius:0;padding:10px 2px;font-size:12px;opacity:.65}nav button.on{opacity:1;color:var(--acc);font-weight:700}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;overflow-x:auto;background:var(--card);border-top:1px solid var(--mut);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1 0 52px;background:none;color:var(--ink);border-radius:0;padding:10px 2px;font-size:12px;opacity:.65}nav button.on{opacity:1;color:var(--acc);font-weight:700}
 nav span{display:block;font-size:18px}
 .chip{display:inline-block;background:var(--mut);color:var(--ink);border-radius:20px;padding:3px 11px;margin:3px 3px 3px 0;font-size:14px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.sp{justify-content:space-between}
@@ -40,6 +38,7 @@ details{margin:6px 0}summary{cursor:pointer;font-weight:600}
 <button data-t="quiz" onclick="go('quiz')"><span>🎯</span>Quiz</button>
 <button data-t="cards" onclick="go('cards')"><span>🃏</span>Carduri</button>
 <button data-t="map" onclick="go('map')"><span>🧠</span>Hartă</button>
+<button data-t="profile" onclick="go('profile')"><span>👤</span>Progres</button>
 </nav>
 <script>
 /* ===== Stocare (IndexedDB) ===== */
@@ -93,12 +92,13 @@ async function addFiles(files){
   render()}
 
 /* ===== Interfață ===== */
-function go(t){tab=t;render();scrollTo(0,0)}
-function open_(id){cur=id;quiz=null;card={i:0,f:false};go('text')}
+function go(t){tab=t;const d=D();if(d&&t!=='docs'&&t!=='profile'){d.lastActivity={label:`A deschis ${({text:'textul',qa:'întrebările',quiz:'quiz-ul',cards:'cardurile',map:'harta'})[t]||t}`,tab:t,at:Date.now()};save(d)}render();scrollTo(0,0)}
+function open_(id,destination='text'){cur=id;quiz=null;card={i:0,f:false};go(destination)}
 async function rm(id){if(!confirm('Ștergi documentul?'))return;docs=docs.filter(x=>x.id!==id);await del(id);if(cur===id)cur=null;render()}
 function render(){
   const d=D();let h='';
   if(tab==='docs')h=vDocs();
+  else if(tab==='profile')h=vProfile();
   else if(!d)h='<div class=card>Încarcă sau alege mai întâi un document.</div>';
   else h=({text:vText,qa:vQA,quiz:vQuiz,cards:vCards,map:vMap})[tab](d);
   $('#main').innerHTML=h;
@@ -112,6 +112,19 @@ function vDocs(){
   <h2>Biblioteca ta (${docs.length})</h2>
   ${docs.map(d=>`<div class=card><b>${esc(d.name)}</b><div class=muted>${d.type.toUpperCase()} · ${(d.size/1024).toFixed(0)} KB · ${d.text.split(/\s+/).length} cuvinte · ${d.qa.length} întrebări · ${d.scores.length} teste</div>
   <div class=row style="margin-top:8px"><button onclick="open_('${d.id}')">Deschide</button><button class=ghost onclick="rm('${d.id}')">Șterge</button></div></div>`).join('')||'<div class=muted>Nimic încă. Documentele rămân salvate pe dispozitiv.</div>'}`}
+function vProfile(){
+  const scoreList=docs.flatMap(d=>(d.scores||[]).map(s=>({...s,name:d.name}))),attempts=scoreList.length;
+  const points=scoreList.reduce((n,s)=>n+s.s,0),questions=scoreList.reduce((n,s)=>n+s.n,0);
+  const errors=docs.flatMap(d=>(d.mistakes||[]).map(m=>({...m,name:d.name}))).sort((a,b)=>b.t-a.t);
+  const activity=docs.filter(d=>d.lastActivity).map(d=>({...d.lastActivity,name:d.name,id:d.id})).sort((a,b)=>b.at-a.at)[0];
+  const bytes=docs.reduce((n,d)=>n+(d.size||0),0),known=docs.reduce((n,d)=>n+Object.values(d.known||{}).filter(Boolean).length,0);
+  const wordCount=docs.reduce((n,d)=>n+(d.text||'').split(/\s+/).filter(Boolean).length,0);
+  return `<h2>Spațiul meu</h2><div class=card><div class=row><span class=chip>${docs.length} documente</span><span class=chip>${(bytes/1024/1024).toFixed(2)} MB încărcați</span><span class=chip>${wordCount} cuvinte</span></div>
+  <p>Teste: <b>${attempts}</b> · Răspunsuri corecte: <b>${questions?Math.round(points/questions*100):0}%</b> · Carduri știute: <b>${known}</b></p>
+  <p class=muted>${persist?'Datele sunt salvate local pe acest dispozitiv.':'Stocarea locală nu este disponibilă; datele nu vor rămâne după reîncărcare.'} Nu este un cont sincronizat între dispozitive.</p></div>
+  <h2>Unde ai rămas</h2>${activity?`<div class=card><b>${esc(activity.name)}</b><div>${esc(activity.label)}</div><div class=muted>${new Date(activity.at).toLocaleString('ro-RO')}${activity.progress!=null?` · Întrebarea ${activity.progress}${activity.total?` din ${activity.total}`:''}`:''}</div><button style="margin-top:8px" onclick="open_('${activity.id}','${activity.tab||'text'}')">Deschide secțiunea</button></div>`:'<div class=card class=muted>Activitatea ta va apărea aici după ce deschizi un document.</div>'}
+  <h2>Greșeli recente (${errors.length})</h2>${errors.slice(0,8).map(m=>`<div class=card><b>${esc(m.name)}</b><p>${esc(m.q)}</p><div class=bad>Răspunsul tău: ${esc(Array.isArray(m.val)?m.val.join(', '):m.val)||'—'}</div><div class=ok>Răspuns corect: ${esc(m.a)}</div><div class=muted>${new Date(m.t).toLocaleString('ro-RO')}</div></div>`).join('')||'<div class=card class=muted>Încă nu există greșeli înregistrate.</div>'}
+  <h2>Documentele mele</h2>${docs.map(d=>`<div class=card><b>${esc(d.name)}</b><div class=muted>${d.scores?.length||0} teste · ${Object.values(d.known||{}).filter(Boolean).length} carduri știute · ${d.lastActivity?esc(d.lastActivity.label):'Nicio activitate recentă'}</div><button style="margin-top:8px" onclick="open_('${d.id}')">Deschide</button></div>`).join('')||'<div class=muted>Încarcă un PDF sau DOCX pentru a începe.</div>'}`}
 function vText(d){
   return `<h2>${esc(d.name)}</h2><div class=muted>Editează textul extras, apoi regenerează conceptele și întrebările.</div>
   <textarea rows=16 onchange="editText(this.value)">${esc(d.text)}</textarea>
@@ -119,66 +132,112 @@ function vText(d){
 function editText(v){const d=D();d.text=v;save(d)}
 function regen(){const d=D();if(!confirm('Înlocuiești întrebările și conceptele actuale?'))return;Object.assign(d,analyze(d.text));quiz=null;save(d);go('qa')}
 let aiMsg='';
+const norm=s=>String(s||'').replace(/\s+/g,' ').trim().toLowerCase();
+const stringList=value=>(Array.isArray(value)?value:[value]).filter(v=>typeof v==='string'&&v.trim()).map(v=>v.trim());
+function prepareQuestions(raw,concepts,text,source){
+  if(!Array.isArray(raw))return [];
+  const parsed=raw.map(x=>{
+    if(!x||typeof x!=='object')return null;
+    const options=Array.isArray(x.options)?x.options:[];
+    const optionText=o=>typeof o==='string'?o:(o&&typeof o==='object'?String(o.text||o.label||o.value||''):'');
+    const markedCorrect=options.filter(o=>o&&typeof o==='object'&&(o.correct===true||o.isCorrect===true||o.is_correct===true)).map(optionText);
+    const markedWrong=options.filter(o=>o&&typeof o==='object'&&(o.correct===false||o.isCorrect===false||o.is_correct===false)).map(optionText);
+    const correct=[...stringList(x.answers),...stringList(x.correctAnswers),...stringList(x.correctAnswer),...stringList(x.correct_answers),...stringList(x.correct),...stringList(x.a||x.answer),...markedCorrect];
+    const uniqueCorrect=[...new Map(correct.map(v=>[norm(v),v])).values()].slice(0,4);
+    const wrong=[...stringList(x.wrong),...stringList(x.distractors),...markedWrong,...options.filter(o=>typeof o==='string').map(optionText)];
+    const uniqueWrong=[...new Map(wrong.filter(v=>!uniqueCorrect.some(a=>norm(a)===norm(v))).map(v=>[norm(v),v])).values()].slice(0,4);
+    const evidence=typeof x.evidence==='string'?x.evidence.trim():'';
+    if(evidence&&!norm(text).includes(norm(evidence)))return null;
+    const q=String(x.q||x.question||x.prompt||'').trim(),a=uniqueCorrect[0]||'';
+    const declaredType=String(x.type||x.mode||'').toLowerCase();
+    const cloze=/cloze|fill|blank/i.test(declaredType);
+    return q&&a?{q,a,correct:uniqueCorrect,wrong:uniqueWrong,evidence,declaredType,cloze,choice:cloze||/single|multiple|multi|choice|gril|mc/i.test(declaredType)||options.length>0}:null;
+  }).filter(Boolean);
+  const alternatives=[...concepts,...(source==='local'?parsed.filter(x=>x.cloze).flatMap(x=>x.correct):[])];
+  return parsed.map(x=>{
+    const multi=x.correct.length>1;
+    const isChoice=multi||x.choice||x.wrong.length>0;
+    const wrong=isChoice?[...new Map([...x.wrong,...alternatives].filter(v=>!x.correct.some(a=>norm(a)===norm(v))).map(v=>[norm(v),v])).values()].slice(0,4):[];
+    return{id:uid(),type:multi||wrong.length?'mc':'def',multi,q:x.q,a:x.a,answers:multi?x.correct:[],wrong,evidence:x.evidence,source};
+  });
+}
 async function aiGen(){
-  const d=D();aiMsg='Se generează cu Claude…';render();
+  const d=D();if(!d)return;aiMsg='Se generează întrebările…';render();
+  let r=null,aiError='';
   try{
     const sample=(typeof claude!=='undefined')?await claude.use('sample'):null;
-    if(!sample){aiMsg='Generarea AI nu e disponibilă aici; rămâne varianta locală.';render();return}
-    const r=await sample.json('Ești un asistent de studiu. Din textul de mai jos, în limba textului, returnează DOAR JSON de forma {"concepts":[6-12 concepte cheie scurte],"main":[4-6 idei principale, propoziții scurte],"qa":[{"q":"întrebare","a":"răspuns corect și concis","wrong":["3 variante greșite plauzibile"]}]} cu 12-20 întrebări bazate strict pe text. Pentru întrebările deschise pune "wrong":[].\n\nTEXT:\n'+d.text.slice(0,14000));
-    const qa=(r.qa||[]).filter(x=>x&&x.q&&x.a).map(x=>{const w=Array.isArray(x.wrong)?x.wrong.map(String).filter(Boolean):[];return{id:uid(),type:w.length>=2?'mc':'def',q:String(x.q),a:String(x.a),wrong:w}});
-    if(!qa.length)throw new Error('răspuns gol');
-    d.qa=qa;d.concepts=(r.concepts||[]).map(String).slice(0,12);d.main=(r.main||[]).map(String).slice(0,6);
-    quiz=null;d.known={};await save(d);aiMsg=`Gata: ${qa.length} întrebări generate cu AI.`;go('qa');
-  }catch(e){aiMsg=e&&e.code==='not_granted'?'Permisiunea a fost refuzată.':e&&e.code==='rate_limited'?'Prea multe cereri; încearcă mai târziu.':'Eroare: '+((e&&e.message)||'necunoscută');render()}}
+    if(!sample)aiError='Serviciul Claude nu este disponibil în acest mediu.';
+    else r=await sample.json('Analizează textul și generează întrebări de studiu în limba textului. Returnează DOAR JSON cu "concepts":[], "main":[] și "qa":[]. Fiecare element qa trebuie să aibă "q", "a" (răspunsul corect), "type" ("short", "single" sau "multiple"), "answers" (toate răspunsurile corecte pentru multiple-choice; minimum 2), "wrong" (3 variante greșite pentru single/multiple sau [] pentru short) și "evidence" (citat exact din text). Poți folosi și "options":[{"text":"...","correct":true/false}]. Nu inventa informații și bazează toate întrebările pe text.\n\nTEXT:\n'+d.text.slice(0,14000));
+  }catch(e){aiError=e&&e.code==='not_granted'?'Permisiunea AI nu a fost acordată.':e&&e.code==='rate_limited'?'Serviciul AI a atins limita de cereri.':(e&&e.message)||'Serviciul AI nu a răspuns.'}
+  const aiQuestions=prepareQuestions(Array.isArray(r?.qa)?r.qa:Array.isArray(r?.questions)?r.questions:[],stringList(r?.concepts),d.text,'ai').slice(0,20);
+  const local=analyze(d.text);
+  const usedAI=aiQuestions.length>0,qa=usedAI?aiQuestions:prepareQuestions(local.qa,local.concepts,d.text,'local').slice(0,25);
+  if(!qa.length){aiMsg=`${aiError||'Generarea nu a produs întrebări'} Textul extras este prea scurt sau nu conține propoziții analizabile.`;render();return}
+  d.qa=qa;d.concepts=usedAI&&Array.isArray(r.concepts)?stringList(r.concepts).slice(0,12):local.concepts;d.main=usedAI&&Array.isArray(r.main)?stringList(r.main).slice(0,6):local.main;
+  quiz=null;d.known={};await save(d);
+  aiMsg=usedAI?`AI a generat ${qa.length} întrebări; tipurile și variantele au fost setate automat. Verifică răspunsurile înainte de folosire.`:`${aiError||'AI nu a returnat întrebări utilizabile'} Am generat local ${qa.length} întrebări cu tipuri și variante setate automat. Acestea nu sunt generate de AI.`;
+  go('qa')}
 function vQA(d){
-  return `<div class="row sp"><h2>Întrebări și răspunsuri (${d.qa.length})</h2><button onclick="addQA()">+ Adaugă</button></div>
-  ${d.qa.map(x=>`<div class=card><span class=muted>${{cloze:'completare',mc:'grilă (AI)'}[x.type]||'răspuns scurt'}</span>
+  return `${aiMsg?`<div class="card muted">${esc(aiMsg)}</div>`:''}<div class="row sp"><h2>Întrebări și răspunsuri (${d.qa.length})</h2><button onclick="addQA()">+ Adaugă</button></div>
+  ${d.qa.map(x=>{const mode=modeOf(x);return `<div class=card><label class=muted>Tip întrebare <select onchange="setMode('${x.id}',this.value)"><option value="short" ${mode==='short'?'selected':''}>Răspuns scurt</option><option value="single" ${mode==='single'?'selected':''}>Alegere unică</option><option value="multiple" ${mode==='multiple'?'selected':''}>Alegere multiplă</option></select></label>
   <textarea rows=2 onchange="updQA('${x.id}','q',this.value)">${esc(x.q)}</textarea>
-  <textarea rows=${x.type==='cloze'?1:3} style="margin-top:6px" onchange="updQA('${x.id}','a',this.value)">${esc(x.a)}</textarea>
-  <button class=ghost style="margin-top:6px" onclick="delQA('${x.id}')">Șterge</button></div>`).join('')}`}
-function updQA(id,k,v){const d=D();d.qa.find(x=>x.id===id)[k]=v;save(d)}
+  ${mode==='multiple'?`<textarea rows=3 style="margin-top:6px" placeholder="Răspunsuri corecte, unul pe rând (minimum 2)" onchange="updQA('${x.id}','answers',this.value)">${esc((x.answers?.length?x.answers:[x.a]).join('\n'))}</textarea>`:`<textarea rows=${x.type==='cloze'?1:3} style="margin-top:6px" placeholder="Răspuns corect" onchange="updQA('${x.id}','a',this.value)">${esc(x.a)}</textarea>`}
+  ${mode!=='short'?`<textarea rows=3 style="margin-top:6px" placeholder="Variante greșite, una pe rând" onchange="updQA('${x.id}','wrong',this.value)">${esc((x.wrong||[]).join('\n'))}</textarea>`:''}
+  ${x.evidence?`<p class=muted>Susținere în document: „${esc(x.evidence)}” · verifică răspunsul AI</p>`:''}
+  <button class=ghost style="margin-top:6px" onclick="delQA('${x.id}')">Șterge</button></div>`}).join('')}`}
+function modeOf(x){return x.multi?'multiple':x.type==='mc'||x.type==='cloze'?'single':'short'}
+function setMode(id,mode){const d=D(),x=d.qa.find(q=>q.id===id);x.multi=mode==='multiple';x.type=mode==='short'?'def':'mc';if(mode!=='multiple')delete x.answers;else if(!x.answers?.length)x.answers=[x.a];save(d);render()}
+function updQA(id,k,v){const d=D(),x=d.qa.find(q=>q.id===id);x[k]=k==='answers'||k==='wrong'?v.split('\n').map(s=>s.trim()).filter(Boolean):v;save(d)}
 function delQA(id){const d=D();d.qa=d.qa.filter(x=>x.id!==id);save(d);render()}
 function addQA(){const d=D();d.qa.unshift({id:uid(),type:'def',q:'Întrebare nouă?',a:'Răspuns'});save(d);render()}
 
 /* Quiz */
 const shuf=a=>a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(x=>x[1]);
 function startQuiz(){
-  const d=D(),pool=d.qa.filter(x=>x.q.trim()&&x.a.trim());
-  const dist=[...new Set([...d.concepts,...pool.filter(x=>x.type==='cloze').map(x=>x.a)])];
+  const d=D(),base=d.qa.filter(x=>x.q.trim()&&x.a.trim()),dist=[...new Set([...d.concepts,...base.map(x=>x.a)])];
+  const pool=base.filter(x=>modeOf(x)==='multiple'?x.answers?.filter(Boolean).length>=2:modeOf(x)==='single'?(x.wrong?.length||x.type==='cloze'||base.some(y=>y.id!==x.id&&y.a!==x.a)):true);
   const items=shuf(pool).slice(0,10).map(x=>{
-    if(x.wrong&&x.wrong.length>=2)return{...x,mc:true,opts:shuf([x.a,...x.wrong.slice(0,3)])};
-    const mc=x.type==='cloze'&&dist.filter(w=>w.toLowerCase()!==x.a.toLowerCase()).length>=2;
-    return{...x,mc,opts:mc?shuf([x.a,...shuf(dist.filter(w=>w.toLowerCase()!==x.a.toLowerCase())).slice(0,3)]):null}});
-  quiz={items,i:0,score:0,res:null,log:[],done:false};render()}
+    if(modeOf(x)==='multiple'){
+      const wrong=[...(x.wrong||[]),...dist.filter(w=>!x.answers.some(a=>norm(a)===norm(w)))].filter((w,i,a)=>a.findIndex(v=>norm(v)===norm(w))===i).slice(0,4);
+      return{...x,mc:true,multi:true,correct:x.answers,opts:shuf([...x.answers,...wrong])}}
+    if(modeOf(x)==='single'){
+      const wrong=[...(x.wrong||[]),...dist.filter(w=>norm(w)!==norm(x.a))].filter((w,i,a)=>a.findIndex(v=>norm(v)===norm(w))===i).slice(0,3);
+      return{...x,mc:wrong.length>0,opts:wrong.length?shuf([x.a,...wrong]):null}}
+    return{...x,mc:false,opts:null}});
+  if(!items.length){alert('Nu există întrebări valide pentru test. Pentru alegerea multiplă adaugă cel puțin două răspunsuri corecte.');return}
+  quiz={items,i:0,score:0,res:null,log:[],done:false,selected:[]};d.lastActivity={label:'A început un quiz',tab:'quiz',at:Date.now(),progress:0,total:items.length};save(d);render()}
 function grade(u,a){
   const A=words(a),U=words(u);if(!A.length)return u.trim().toLowerCase()===a.trim().toLowerCase()?1:0;
   const h=A.filter(w=>U.some(x=>x.slice(0,5)===w.slice(0,5))).length;return h/A.length}
 function answer(val){
   const it=quiz.items[quiz.i];if(quiz.res)return;let r;
-  if(it.mc)r=val.toLowerCase()===it.a.toLowerCase()?'ok':'bad';
+  if(it.multi){const expected=it.correct.map(norm).sort(),actual=(Array.isArray(val)?val:[]).map(norm).sort();r=expected.length===actual.length&&expected.every((v,i)=>v===actual[i])?'ok':'bad'}
+  else if(it.mc)r=norm(val)===norm(it.a)?'ok':'bad';
   else{const g=grade(val,it.a);r=g>=.4?'ok':g>=.2?'mid':'bad'}
   quiz.res={r,val};if(r==='ok')quiz.score++;else if(r==='mid')quiz.score+=.5;
-  quiz.log.push({q:it.q,a:it.a,val,r});render()}
+  quiz.log.push({q:it.q,a:it.multi?it.correct.join(', '):it.a,val,r});const d=D();d.lastActivity={label:`Quiz: ${it.q}`,tab:'quiz',at:Date.now(),progress:quiz.i+1,total:quiz.items.length};save(d);render()}
+function toggleOption(val){quiz.selected=quiz.selected.includes(val)?quiz.selected.filter(x=>x!==val):[...quiz.selected,val];render()}
 function nextQ(){
   quiz.i++;quiz.res=null;
-  if(quiz.i>=quiz.items.length){quiz.done=true;const d=D();d.scores.push({t:Date.now(),s:quiz.score,n:quiz.items.length});save(d)}
+  if(quiz.i>=quiz.items.length){quiz.done=true;const d=D();d.scores.push({t:Date.now(),s:quiz.score,n:quiz.items.length});d.mistakes=d.mistakes||[];d.mistakes.push(...quiz.log.filter(x=>x.r!=='ok').map(x=>({...x,t:Date.now()})));d.lastActivity={label:'A terminat quiz-ul',tab:'quiz',at:Date.now(),progress:quiz.items.length,total:quiz.items.length};save(d)}
+  else quiz.selected=[];
   render()}
 function vQuiz(d){
-  if(!quiz)return `<h2>Quiz</h2><div class=card>${d.qa.length} întrebări disponibile. Testul are până la 10 întrebări: grilă pentru completări, răspuns scurt pentru definiții.<div style="margin-top:10px"><button onclick="startQuiz()" ${d.qa.length?'':'disabled'}>Începe testul</button></div></div>
+  if(!quiz)return `<h2>Quiz</h2><div class=card>${d.qa.length} întrebări disponibile. Testul acceptă alegere unică, alegere multiplă și răspuns scurt.<div class=muted>Sesiunea curentă nu se reia automat după închiderea paginii.</div><div style="margin-top:10px"><button onclick="startQuiz()" ${d.qa.length?'':'disabled'}>Începe testul</button></div></div>
   ${d.scores.length?`<h2>Istoric</h2>${d.scores.slice(-6).reverse().map(s=>`<div class=card>${new Date(s.t).toLocaleString('ro-RO')} — <b>${s.s}/${s.n}</b></div>`).join('')}`:''}`;
   if(quiz.done){
     const n=quiz.items.length,p=Math.round(quiz.score/n*100),w=quiz.log.filter(x=>x.r!=='ok');
     return `<h2>Rezultat</h2><div class=card><div style="font-size:34px;font-weight:700;color:var(--acc)">${quiz.score}/${n} · ${p}%</div>
     <div class=bar><i style="width:${p}%"></i></div><p>Corecte: ${quiz.log.filter(x=>x.r==='ok').length} · Parțiale: ${quiz.log.filter(x=>x.r==='mid').length} · Greșite: ${quiz.log.filter(x=>x.r==='bad').length}</p>
     <button onclick="startQuiz()">Reia quiz-ul</button></div>
-    ${w.length?'<h2>De revăzut</h2>'+w.map(x=>`<div class=card><b>${esc(x.q)}</b><div class=ok>${esc(x.a)}</div><div class=muted>Ai răspuns: ${esc(x.val)||'—'}</div></div>`).join(''):''}`}
+    ${w.length?'<h2>De revăzut</h2>'+w.map(x=>`<div class=card><b>${esc(x.q)}</b><div class=ok>${esc(x.a)}</div><div class=muted>Ai răspuns: ${esc(Array.isArray(x.val)?x.val.join(', '):x.val)||'—'}</div></div>`).join(''):''}`}
   const it=quiz.items[quiz.i],r=quiz.res;
   let body;
-  if(it.mc)body=it.opts.map((o,k)=>`<button class="opt ${r?(o.toLowerCase()===it.a.toLowerCase()?'ok':(o===r.val?'bad':'')):''}" onclick="answer(this.dataset.v)" data-v="${esc(o)}">${esc(o)}</button>`).join('');
+  if(it.mc)body=it.opts.map(o=>`<button class="opt ${it.multi&&quiz.selected.includes(o)?'selected':''} ${r?((it.multi?it.correct:[it.a]).some(a=>norm(a)===norm(o))?'ok':(Array.isArray(r.val)?r.val:[r.val]).some(v=>norm(v)===norm(o))?'bad':''):''}" onclick="${it.multi?'toggleOption(this.dataset.v)':'answer(this.dataset.v)'}" data-v="${esc(o)}">${it.multi?(quiz.selected.includes(o)?'☑ ':'☐ '):''}${esc(o)}</button>`).join('')+(it.multi&&!r?`<button style="margin-top:8px" onclick="answer(quiz.selected)">Verifică selecția</button>`:'');
   else body=`<textarea id=ua rows=3 placeholder="Scrie răspunsul…" ${r?'disabled':''}>${r?esc(r.val):''}</textarea>${r?'':'<div style="margin-top:8px"><button onclick="answer($(\'#ua\').value)">Verifică</button></div>'}`;
   return `<div class=muted>Întrebarea ${quiz.i+1} / ${quiz.items.length}</div><div class=bar><i style="width:${quiz.i/quiz.items.length*100}%"></i></div>
   <div class=card><b>${esc(it.q)}</b>${body}
-  ${r?`<div class="fb ${r.r}">${{ok:'✔ Corect',mid:'≈ Parțial corect',bad:'✘ Greșit'}[r.r]}</div>${r.r!=='ok'?`<div class=muted>Răspuns corect:</div><div>${esc(it.a)}</div>`:''}<div style="margin-top:10px"><button onclick="nextQ()">${quiz.i+1<quiz.items.length?'Următoarea':'Vezi scorul'}</button></div>`:''}</div>`}
+  ${r?`<div class="fb ${r.r}">${{ok:'✔ Corect',mid:'≈ Parțial corect',bad:'✘ Greșit'}[r.r]}</div>${r.r!=='ok'?`<div class=muted>Răspuns corect:</div><div>${esc(it.multi?it.correct.join(', '):it.a)}</div>`:''}<div style="margin-top:10px"><button onclick="nextQ()">${quiz.i+1<quiz.items.length?'Următoarea':'Vezi scorul'}</button></div>`:''}</div>`}
 
 /* Flashcards */
 function vCards(d){
